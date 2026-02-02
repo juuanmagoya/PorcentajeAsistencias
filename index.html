@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Control de Asistencias</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Librería para Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
+
+<div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-lg">
+  <h1 class="text-2xl font-bold mb-4 text-center">
+    Porcentaje de Asistencias
+  </h1>
+
+  <!-- Formulario -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+    <input id="name" type="text" placeholder="Nombre y apellido"
+      class="border p-2 rounded">
+
+    <input id="asistencias" type="number" min="0" placeholder="Asistencias"
+      class="border p-2 rounded">
+
+    <input id="inasistencias" type="number" min="0" placeholder="Inasistencias"
+      class="border p-2 rounded">
+  </div>
+
+  <div class="flex flex-wrap gap-2">
+    <button onclick="saveStudent()"
+      class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+      Guardar alumno
+    </button>
+
+    <button onclick="exportExcel()"
+      class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+      Exportar a Excel
+    </button>
+  </div>
+
+  <!-- Tabla -->
+  <div class="mt-6 overflow-x-auto">
+    <table class="w-full border text-center">
+      <thead class="bg-gray-200">
+        <tr>
+          <th class="border p-2">Alumno</th>
+          <th class="border p-2">Asistencias</th>
+          <th class="border p-2">Inasistencias</th>
+          <th class="border p-2">% Asistencia</th>
+          <th class="border p-2">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+let students = JSON.parse(localStorage.getItem("students")) || [];
+let editIndex = null;
+
+function saveStudent() {
+  const name = document.getElementById("name").value.trim();
+  const asist = Number(document.getElementById("asistencias").value);
+  const inasist = Number(document.getElementById("inasistencias").value);
+
+  if (!name || asist < 0 || inasist < 0) {
+    alert("Completa bien los campos");
+    return;
+  }
+
+  const total = asist + inasist;
+  if (total === 0) {
+    alert("El total no puede ser 0");
+    return;
+  }
+
+  const student = { name, asist, inasist };
+
+  if (editIndex !== null) {
+    students[editIndex] = student;
+    editIndex = null;
+  } else {
+    students.push(student);
+  }
+
+  localStorage.setItem("students", JSON.stringify(students));
+  clearForm();
+  renderTable();
+}
+
+function renderTable() {
+  const body = document.getElementById("tableBody");
+  body.innerHTML = "";
+
+  students.forEach((s, index) => {
+    const total = s.asist + s.inasist;
+    const percent = ((s.asist / total) * 100).toFixed(1);
+
+    const color = percent < 80 
+      ? "text-red-600 font-bold" 
+      : "text-green-600 font-bold";
+
+    body.innerHTML += `
+      <tr>
+        <td class="border p-2">${s.name}</td>
+        <td class="border p-2">${s.asist}</td>
+        <td class="border p-2">${s.inasist}</td>
+        <td class="border p-2 ${color}">${percent}%</td>
+        <td class="border p-2 space-x-2">
+          <button onclick="editStudent(${index})"
+            class="bg-yellow-400 px-2 py-1 rounded text-sm">
+            Editar
+          </button>
+          <button onclick="deleteStudent(${index})"
+            class="bg-red-500 text-white px-2 py-1 rounded text-sm">
+            Borrar
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function editStudent(index) {
+  const s = students[index];
+  document.getElementById("name").value = s.name;
+  document.getElementById("asistencias").value = s.asist;
+  document.getElementById("inasistencias").value = s.inasist;
+  editIndex = index;
+}
+
+function deleteStudent(index) {
+  if (!confirm("¿Borrar este alumno?")) return;
+
+  students.splice(index, 1);
+  localStorage.setItem("students", JSON.stringify(students));
+  renderTable();
+}
+
+function clearForm() {
+  document.getElementById("name").value = "";
+  document.getElementById("asistencias").value = "";
+  document.getElementById("inasistencias").value = "";
+}
+
+function exportExcel() {
+  if (students.length === 0) {
+    alert("No hay datos para exportar");
+    return;
+  }
+
+  const data = students.map(s => {
+    const total = s.asist + s.inasist;
+    const percent = ((s.asist / total) * 100).toFixed(1);
+
+    return {
+      Alumno: s.name,
+      Asistencias: s.asist,
+      Inasistencias: s.inasist,
+      "Porcentaje Asistencia": percent + "%"
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Asistencias");
+
+  XLSX.writeFile(workbook, "asistencias.xlsx");
+}
+
+// cargar al iniciar
+renderTable();
+</script>
+
+</body>
+</html>
